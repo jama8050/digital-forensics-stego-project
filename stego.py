@@ -5,6 +5,12 @@ from hashlib import md5
 from _md5 import md5
 from os import path
 
+ENCODING = 'utf-8'
+EMBED_STR = "_embedded"  # Add onto the end of a file name that we modify
+
+# The following numbers were randomly generated
+START_MARKER = b'\x4f\x85\x61\x3a\x57\x41\x1d\xea\xc8\xa8'  # Custom start marker
+END_MARKER = b'\x4f\x85\x61\x3a\x57\x41\x1d\xa8\xc8\xea'  # Custom end marker (start_marker with last 3 bytes reversed)
 
 def init():
     # Setup argument parsing
