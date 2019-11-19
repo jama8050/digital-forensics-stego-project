@@ -3,7 +3,6 @@
 from argparse import ArgumentParser, FileType
 from hashlib import md5
 from _md5 import md5
-from os import path
 
 ENCODING = 'utf-8'
 EMBED_STR = "_embedded"  # Add onto the end of a file name that we modify
