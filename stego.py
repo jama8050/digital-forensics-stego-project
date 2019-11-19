@@ -11,7 +11,7 @@ def init():
     parser = ArgumentParser(description="Steganography embedding/extracting program in Python 3.7",
                             epilog="Credit to Jacob Malcy")
 
-    parser.add_argument("-i", "--insert", help="Embed the specified file.", default=False)
+    parser.add_argument("-s", "--secret", help="Specify the hidden message to embed (enables embedding).")
     parser.add_argument("carrier", help="A JPEG image that acts as the carrier file.")
     parsed = parser.parse_args()
 
@@ -19,17 +19,13 @@ def init():
     if path.isfile(parsed.carrier) is False:
         raise FileNotFoundError('File "{}" could not be found!'.format(parsed.carrier))
 
-    # Check file to embed existence
-    if parsed.insert is not False and path.isfile(parsed.insert) is False:
-        raise FileNotFoundError('File "{}" could not be found!'.format(parsed.insert))
-
     return parsed
 
 
 def main():
     parsed = init()
 
-    if parsed.insert is not False:
+    if parsed.secret:
         # In insert mode
         pass
 
