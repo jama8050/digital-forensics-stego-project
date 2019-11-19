@@ -11,7 +11,14 @@ EMBED_STR = "_embedded"  # Add onto the end of a file name that we modify
 # The following numbers were randomly generated
 START_MARKER = b'\x4f\x85\x61\x3a\x57\x41\x1d\xea\xc8\xa8'  # Custom start marker
 END_MARKER = b'\x4f\x85\x61\x3a\x57\x41\x1d\xa8\xc8\xea'  # Custom end marker (start_marker with last 3 bytes reversed)
-# TODO: Add file statistics function (prints size, name, md5, etc.)
+
+
+# Given 'file.read()' data of a file and the title to start with, print out basic file information
+def file_metadata(title, file_name, data):
+    print(title)
+    print('\tFile Name: "{}"'.format(file_name))
+    print('\tFile Size: {}B'.format(len(data)))
+    print('\tMD5 Hash: {}'.format(md5(data).hexdigest()))
 
 
 # Append the secret message to a file
@@ -28,9 +35,12 @@ def append(carrier_obj, message):
 
     carrier_obj.close()
 
-# Extract the message
-def extract(file_name):
-    with open(file_name, 'rb') as image:
+    file_metadata("Original carrier file information:", carrier_name, data)
+    file_metadata("Modified carrier file information:", new_name, new_data)
+
+
+# Extract the secret message
+def extract(carrier_obj, output_object):
     carrier_name = carrier_obj.name
     with carrier_obj as image:
         data = image.read()
