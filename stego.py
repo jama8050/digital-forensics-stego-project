@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from argparse import ArgumentParser
+from argparse import ArgumentParser, FileType
 from hashlib import md5
 from _md5 import md5
 from os import path
@@ -15,44 +15,45 @@ END_MARKER = b'\x4f\x85\x61\x3a\x57\x41\x1d\xa8\xc8\xea'  # Custom end marker (s
 
 
 # Append the secret message to a file
-def append(file_name, message):
+def append(carrier_obj, message):
+    carrier_name = carrier_obj.name
     message_to_write = START_MARKER + str.encode(message, ENCODING) + END_MARKER
-    last_dot = file_name.rfind('.')
-    new_name = file_name[:last_dot] + EMBED_STR + file_name[last_dot:]
+    last_dot = carrier_name.rfind('.')
+    new_name = carrier_name[:last_dot] + EMBED_STR + carrier_name[last_dot:]
 
-    with open(file_name, 'rb') as image, open(new_name, 'wb') as new_image:
-        new_image.write(image.read() + message_to_write)
+    with carrier_obj as image, open(new_name, 'wb') as new_image:
+        data = image.read()
+        new_data = data + message_to_write
+        new_image.write(new_data)
 
+    carrier_obj.close()
 
 # Extract the message
 def extract(file_name):
     with open(file_name, 'rb') as image:
+    carrier_name = carrier_obj.name
+    with carrier_obj as image:
         data = image.read()
+    carrier_obj.close()
 
     # Locate message via custom magic numbers
     start_index = data.rfind(START_MARKER)
     end_index = data.rfind(END_MARKER)
 
     if start_index == -1 or end_index == -1:
-        raise RuntimeError("Starting and/or ending magic numbers could not be found")
-
-    i = file_name.rfind(EMBED_STR)
-    if i != -1:
-        new_name = file_name[:i] + "_unembedded" + file_name[i + len(EMBED_STR):]
+        raise RuntimeError('Starting and/or ending magic numbers could not be found in file "{}"'.format(carrier_name))
     else:
-        i = file_name.rfind('.')
-        if i == -1:
-            i = len(file_name)
-        new_name = file_name[:i] + "_unembedded" + file_name[i:]
+        file_metadata("Secret carrier file information:", carrier_name, data)
 
     # decoded, secret message
-    str_return = (data[start_index + len(START_MARKER):end_index]).decode(ENCODING)
+    str_return = data[start_index + len(START_MARKER):end_index]
 
-    # Write the carrier file without the secret message inside it
-    with open(new_name, "wb") as image:
-        image.write(data[:start_index] + data[end_index + len(END_MARKER):])
+    with output_object:
+        output_object.write(str_return)
+        file_metadata("Extracted file information:", output_object.name, str_return)
+    output_object.close()
 
-    return str_return
+    return str_return.decode(ENCODING)
 
 
 # Sets up argument parsing with some error checking
@@ -61,13 +62,14 @@ def init():
     parser = ArgumentParser(description="Steganography embedding/extracting program in Python 3.7",
                             epilog="Credit to Jacob Malcy")
 
-    parser.add_argument("-s", "--secret", help="Specify the hidden message to embed (enables embedding).")
-    parser.add_argument("carrier", help="A JPEG image that acts as the carrier file.")
-    parsed = parser.parse_args()
+    # Setup -s and -e as mutually exclusive, but one of them is required
+    group = parser.add_mutually_exclusive_group(required=True)
 
-    # Check carrier existence
-    if path.isfile(parsed.carrier) is False:
-        raise FileNotFoundError('File "{}" could not be found!'.format(parsed.carrier))
+    group.add_argument("-s", "--secret", help="Specify the hidden message to embed (enables embedding).")
+    group.add_argument("-e", "--extract-to", help="Enable extraction mode, specify the file to write the message to.",
+                       type=FileType('wb'))
+    parser.add_argument("carrier", help="A PNG image that acts as the carrier file.", type=FileType('rb'))
+    parsed = parser.parse_args()
 
     return parsed
 
@@ -80,7 +82,7 @@ def main():
         append(parsed.carrier, parsed.secret)
     else:
         # in extract mode
-        print('Secret message: "{}"'.format(extract(parsed.carrier)))
+        print('Secret message: "{}"'.format(extract(parsed.carrier, parsed.extract_to)))
 
 
 if __name__ == "__main__":
