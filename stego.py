@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from argparse import ArgumentParser, FileType
+from argparse import ArgumentParser, FileType, ArgumentTypeError
 from hashlib import md5
 from _md5 import md5
 
@@ -34,6 +34,10 @@ def append(carrier_obj, message):
 
     with carrier_obj as image, open(new_name, 'wb') as new_image:
         data = image.read()
+        # Check if provided carrier is a PNG
+        if data[:len(PNG_HEADER)] != PNG_HEADER or data[len(data) - len(PNG_FOOTER):] != PNG_FOOTER:
+            raise ArgumentTypeError('Provided carrier file could not be validated as a PNG.')
+
         new_data = data + message_to_write
         new_image.write(new_data)
 
