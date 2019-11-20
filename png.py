@@ -162,7 +162,7 @@ class PNG:
             print("Current offset =", actual_index)
 
 
-def main():
+def test_main():
     with open('test_png.png', 'rb') as image:
         data = image.read()
     newPNG = PNG(data, verbose=True)
@@ -190,4 +190,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    test_main()
