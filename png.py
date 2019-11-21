@@ -70,6 +70,11 @@ class PNG:
             print("Image filter method: {}".format(self.filter_method))
             print("Image interlace method: {}".format(self.interlace_method))
 
+    def get_chunk_by_type(self, chunk_type):
+        chunk_indexes = self.chunk_indexes[chunk_type]
+        return_chunks = [self.chunks[chunk_index] for chunk_index in chunk_indexes]
+        return return_chunks
+
     # Split PNG data up into chunks, categorize them by critical, ancillary, or unknown,
     # and return a list of all chunks + the indexes where each chunk was found
     # Format for returned chunks is [chunk size, chunk type, chunk data, CRC-32]
@@ -123,7 +128,11 @@ class PNG:
     # Palette not used for color type != (indexed = 3)
     # Returns list of RGB values in the Palette ('PLTE') chunk
     def parse_palette(self):
-        plte = self.chunks[self.chunk_indexes[b'PLTE'][0]][2]
+        plte_chunks = self.get_chunk_by_type(b'PLTE')
+        if len(plte_chunks) > 1:
+            raise Exception('Multiple PLTE chunks detected')
+        elif len(plte_chunks) == 0:
+            raise Exception('No PLTE chunks detected')
         plte = plte_chunks[0].data
         palette = []
         for i in range(0, len(plte), 3):  # 3 bytes per color
@@ -137,8 +146,11 @@ class PNG:
     # ASSUMES COLOR TYPE = INDEXED, BIT-DEPTH = 8
     # Palette not used for color type != (indexed = 3)
     def parse_idat(self):
-        if len(self.chunk_indexes[b'IDAT']) > 1:
+        idat_chunks = self.get_chunk_by_type(b'IDAT')
+        if len(idat_chunks) > 1:
             raise RuntimeError('Currently unable to parse multiple IDAT chunks.')
+        elif len(idat_chunks) == 0:
+            raise Exception('No IDAT chunk detected, invalid file')
         elif self.color_type != 3:
             raise RuntimeError('Currently restricted to color_type = 3 (set to {})'.format(self.color_type))
 
@@ -153,11 +165,18 @@ class PNG:
 
     # Used to easily modify palette values
     def set_palette(self, palette_index, color, new_value):
+        plte_chunks = self.get_chunk_by_type(b'PLTE')
         color_codes = ('r', 'g', 'b')
+
+        # Error checking block
         if color not in color_codes:
             raise ValueError('Selected color to change must be in {}, given {}'.format(color_codes, color))
-        if not (0 <= new_value <= 255):
+        elif not (0 <= new_value <= 255):
             raise ValueError('Color values must be in range [0, 255], given {}'.format(new_value))
+        elif len(plte_chunks) == 0:
+            raise Exception('No PLTE chunk detected')
+        elif len(plte_chunks) > 1:
+            raise Exception('More than 1 PLTE chunk detected')
 
         # Change value stored in palette array
         self.palette[palette_index][color_codes.index(color)] = new_value
