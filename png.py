@@ -151,24 +151,6 @@ class PNG:
             assert(0 <= v < len(self.palette)), "channels contains invalid index " + str(v)
         return channels
 
-    # export current data to new file
-    def write_image(self, output_object):
-        with output_object:
-            output_object.write(_PNG_HEADER)
-            for chunk in self.chunks:
-                if len(chunk) != 4:
-                    raise RuntimeError('Invalid chunk detected')
-                chunk_type = chunk[1]
-                chunk_data = chunk[2]
-
-                chunk_size = len(chunk_data).to_bytes(4, byteorder='big')  # chunk size segment is 4 bytes
-
-                subset = chunk_type + chunk_data
-                subset += crc32(subset).to_bytes(4, byteorder='big')  # compute the new CRC-32 over the chunk type and data
-                subset = chunk_size + subset
-
-                output_object.write(subset)
-
     # Used to easily modify palette values
     def set_palette(self, palette_index, color, new_value):
         color_codes = ('r', 'g', 'b')
@@ -186,9 +168,9 @@ class PNG:
         # Change chunk value
         self.chunks[self.chunk_indexes[b'PLTE'][0]].data = current_text[:actual_index] + new_value.to_bytes(1, byteorder='big') + current_text[actual_index + 1:]
 
-        if self.verbose is True:
-            new_hex = self.chunks[self.chunk_indexes[b'PLTE'][0]][2]
-            print("Current offset =", actual_index)
+    # export current data to new file
+    def export_image(self):
+        return _PNG_HEADER + b''.join([chunk.output_chunk() for chunk in self.chunks])
 
 
 # A test of the PNG & Chunk classes by incrementing all green values in every pixel in a test image by 18 (max 255)
@@ -216,7 +198,7 @@ def test_main():
         assert(current_value < new_value), 'Decrement failed'
 
     with open('new_png.png', 'wb') as new_image:
-        newPNG.write_image(new_image)
+        new_image.write(newPNG.export_image())
 
 
 if __name__ == '__main__':
