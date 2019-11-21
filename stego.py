@@ -37,8 +37,9 @@ def insert(carrier_obj, message):
 
             # which color value we're looking at
             color_index = 0
-            for num in message_numbers:
-                for char_bit_index in range(7, -1, -2):
+            for num in message_numbers:  # for each character in the secret message
+                for char_bit_index in range(7, -1, -2):  # starting from most sig bit in num to least
+                    # current RGB value of interest
                     current_color_value = carrier_obj.palette[palette_index][color_index]
 
                     # first bit setup
@@ -53,14 +54,18 @@ def insert(carrier_obj, message):
                     else:
                         value_to_set = set_bit(value_to_set, 0)
 
+                    # Change palette value, modifying the two least significant bits
                     carrier_obj.set_palette(palette_index, color_index, value_to_set)
 
+                    # If we just changed a green value, move to red value of next pixel. Else, move to next color
                     if color_index == 2:
                         palette_index += 1
                         color_index = 0
                     else:
                         color_index += 1
 
+            # To keep track of the secret message's length, the message length is stored in the size of the IEND chunk
+            # FIXME: Storing message length in size of IEND chunk is stupid easy to detect
             message_byte_len = len(message_numbers).to_bytes(4, byteorder='big')
             carrier_obj.chunks[carrier_obj.chunk_indexes[b'IEND'][0]].size = message_byte_len
             return carrier_obj
@@ -143,6 +148,7 @@ def main():
 
     if parsed.secret:
         original_image = insert(original_image, parsed.secret)
+        # in extract mode
 
         # After finished parsing, output file
         with parsed.output_file as output_file:
