@@ -254,7 +254,7 @@ class PNG:
 
 # A test of the PNG & Chunk classes by incrementing all green values in every pixel in a test image by 18 (max 255)
 def test_main():
-    with open('test_png.png', 'rb') as image:
+    with open('test.png', 'rb') as image:
         data = image.read()
     newPNG = PNG(data, verbose=True)
     color_to_change = 'g'
