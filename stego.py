@@ -7,6 +7,7 @@ from png import PNG
 from bits import test_bit, set_bit, clear_bit
 
 ENCODING = 'utf-8'
+VERBOSE = False
 
 
 # Given 'file.read()' data of a file and the title to start with, print out basic file information
@@ -111,9 +112,16 @@ def extract(carrier_png):
 
 # Sets up argument parsing with some error checking
 def init():
+    global VERBOSE
+
     # Setup argument parsing
     parser = ArgumentParser(description="Steganography embedding/extracting program in Python 3.7",
                             epilog="Credit to Jacob Malcy")
+
+    parser.add_argument('-v', '--verbose',
+                        help='Enable verbose information (mainly for debugging).',
+                        action='store_true',
+                        default=False)
 
     parser.add_argument("-s", "--secret", help="Specify the hidden message to embed (enables insert mode).")
     parser.add_argument("carrier", help="A PNG image that acts as the carrier file.", type=FileType('rb'))
@@ -121,6 +129,8 @@ def init():
                         help="Specifies the file to export in insert mode or the file to extract to in extraction mode",
                         type=FileType('wb'))
     parsed = parser.parse_args()
+
+    VERBOSE = parsed.verbose
 
     return parsed
 
@@ -131,7 +141,7 @@ def main():
     # In insert mode
     with parsed.carrier as image:
         data = image.read()
-    original_image = PNG(data, verbose=True)
+    original_image = PNG(data, verbose=VERBOSE)
 
     if parsed.secret:
         modified_image = insert(original_image, parsed.secret)
