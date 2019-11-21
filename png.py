@@ -138,7 +138,6 @@ class PNG:
 
     # Called when reading and exporting to validate chunk counts
     def __validate_chunks__(self):
-        print([chunk.type for chunk in self.chunks])
         for chunk_type in (b'IHDR', b'IDAT', b'IEND'):
             num_chunk = self.get_chunk_by_type(chunk_type)
 
