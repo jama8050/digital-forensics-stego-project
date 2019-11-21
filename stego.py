@@ -22,8 +22,12 @@ def insert(carrier_obj, message):
     message_numbers = [ord(c) for c in message]  # Get int representation of each char in message
 
     if carrier_obj.color_type == 3:  # Indexed
+        max_message_size = int.from_bytes(b'\xff\xff\xff\xff', byteorder='big')  # Max size that can fit in IEND size
+        if len(message_numbers) > max_message_size:
+            raise RuntimeError('Message too big, sorry')
+
         # two bits of each character go to different color value (CV)
-        if int.from_bytes(carrier_obj.get_chunk_by_type(b'PLTE').size, byteorder='big') < len(message_numbers) * 4:
+        elif int.from_bytes(carrier_obj.get_chunk_by_type(b'PLTE').size, byteorder='big') < len(message_numbers) * 4:
             # TODO: Going to have to add tRNS chunk if it doesn't exist
             print('bad')
             return carrier_obj
