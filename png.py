@@ -74,7 +74,6 @@ class PNG:
     # and return a list of all chunks + the indexes where each chunk was found
     # Format for returned chunks is [chunk size, chunk type, chunk data, CRC-32]
     def split_chunks(self, data):
-        encoding = 'utf-8'
         chunks = []
         chunk_indexes = {}
         i = 0
@@ -93,13 +92,13 @@ class PNG:
             new_chunk.type = chunk_type
             if self.verbose is True:
                 if chunk_type in CRITICAL_CHUNKS:
-                    print('Critical chunk "{}" found at byte-index {}!'.format(chunk_type.decode(encoding), i))
+                    print('Critical chunk "{}" found at byte-index {}!'.format(chunk_type.decode(self.encoding), i))
                 elif chunk_type in ANCILLARY_CHUNKS:
-                    print('Ancillary chunk "{}" found at byte-index {}!'.format(chunk_type.decode(encoding), i))
+                    print('Ancillary chunk "{}" found at byte-index {}!'.format(chunk_type.decode(self.encoding), i))
 
             if chunk_type not in CRITICAL_CHUNKS and chunk_type not in ANCILLARY_CHUNKS:
                 raise RuntimeWarning(
-                    'Unknown chunk type "{}" found at byte-index {}'.format(chunk_type.decode(encoding), i))
+                    'Unknown chunk type "{}" found at byte-index {}'.format(chunk_type.decode(self.encoding), i))
 
             if chunk_type not in chunk_indexes:
                 chunk_indexes[chunk_type] = [len(chunks)]
