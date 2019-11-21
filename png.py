@@ -81,8 +81,8 @@ class PNG:
         self.interlace_method = int.from_bytes(meta_info[12:13], byteorder='big')
 
         # Parse PLTE and IDAT chunks
-        self.palette = self.parse_palette()
-        self.channels = self.parse_idat()
+        self.palette = self.__parse_palette__()
+        self.channels = self.__parse_idat__()
 
         # Metadata verbose printing
         if self.verbose is True:
@@ -158,7 +158,7 @@ class PNG:
     # ASSUMES COLOR TYPE = INDEXED, BIT-DEPTH = 8
     # Palette not used for color type != (indexed = 3)
     # Returns list of RGB values in the Palette ('PLTE') chunk
-    def parse_palette(self):
+    def __parse_palette__(self):
         plte_chunks = self.get_chunk_by_type(b'PLTE')
         if len(plte_chunks) > 1:
             raise Exception('Multiple PLTE chunks detected')
@@ -176,7 +176,7 @@ class PNG:
 
     # ASSUMES COLOR TYPE = INDEXED, BIT-DEPTH = 8
     # Palette not used for color type != (indexed = 3)
-    def parse_idat(self):
+    def __parse_idat__(self):
         idat_chunks = self.get_chunk_by_type(b'IDAT')
         if len(idat_chunks) > 1:
             raise RuntimeError('Currently unable to parse multiple IDAT chunks.')
