@@ -82,13 +82,11 @@ def init():
     parser = ArgumentParser(description="Steganography embedding/extracting program in Python 3.7",
                             epilog="Credit to Jacob Malcy")
 
-    # Setup -s and -e as mutually exclusive, but one of them is required
-    group = parser.add_mutually_exclusive_group(required=True)
-
-    group.add_argument("-s", "--secret", help="Specify the hidden message to embed (enables embedding).")
-    group.add_argument("-e", "--extract-to", help="Enable extraction mode, specify the file to write the message to.",
-                       type=FileType('wb'))
+    parser.add_argument("-s", "--secret", help="Specify the hidden message to embed (enables insert mode).")
     parser.add_argument("carrier", help="A PNG image that acts as the carrier file.", type=FileType('rb'))
+    parser.add_argument("output_file",
+                        help="Specifies the file to export in insert mode or the file to extract to in extraction mode",
+                        type=FileType('wb'))
     parsed = parser.parse_args()
 
     return parsed
