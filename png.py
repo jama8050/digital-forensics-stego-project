@@ -64,7 +64,7 @@ class Chunk:
 class PNG:
     def __init__(self, data, verbose=False):
         self.verbose = verbose
-        self.encoding = 'utf-8'
+        self.__encoding__ = 'utf-8'
         if data[:len(_PNG_HEADER)] != _PNG_HEADER or data[len(data) - len(_PNG_FOOTER):] != _PNG_FOOTER:
             raise Exception('Valid PNG header and/or footer not found')
 
@@ -133,13 +133,14 @@ class PNG:
             new_chunk.type = chunk_type
             if self.verbose is True:
                 if chunk_type in CRITICAL_CHUNKS:
-                    print('Critical chunk "{}" found at byte-index {}!'.format(chunk_type.decode(self.encoding), i))
+                    print('Critical chunk "{}" found at byte-index {}!'.format(chunk_type.decode(self.__encoding__), i))
                 elif chunk_type in ANCILLARY_CHUNKS:
-                    print('Ancillary chunk "{}" found at byte-index {}!'.format(chunk_type.decode(self.encoding), i))
+                    print(
+                        'Ancillary chunk "{}" found at byte-index {}!'.format(chunk_type.decode(self.__encoding__), i))
 
             if chunk_type not in CRITICAL_CHUNKS and chunk_type not in ANCILLARY_CHUNKS:
                 raise RuntimeWarning(
-                    'Unknown chunk type "{}" found at byte-index {}'.format(chunk_type.decode(self.encoding), i))
+                    'Unknown chunk type "{}" found at byte-index {}'.format(chunk_type.decode(self.__encoding__), i))
 
             # Build chunk_indexes list
             if chunk_type not in chunk_indexes:
@@ -205,6 +206,7 @@ class PNG:
             str_version = chunk_type.decode(self.encoding)
 
             if num_chunk == 0:
+                str_version = chunk_type.decode(self.__encoding__)
                 raise RuntimeError('No {} chunk detected in PNG'.format(str_version))
             elif num_chunk > 1:
                 raise RuntimeError('Multiple {} chunks detected'.format(str_version))
