@@ -62,48 +62,33 @@ def insert(carrier_obj, message):
 
 
 # Extract the secret message
-def extract(carrier_png):
-    secret_size = carrier_png.get_chunk_by_type(b'IEND').int_size()
-    plte = carrier_png.palette
+def extract(carrier_obj):
+    secret_size = carrier_obj.get_chunk_by_type(b'IEND').int_size()
+    plte_index, plte_chunk = carrier_obj.get_chunk_by_type(b'PLTE', bool_return_index=True)
     chars = [0] * secret_size
 
-    pixel_index = 0
-    rgb_index = 0
-    chars_index = 0
-    char_sub_index = 7
+    color_index = 0
 
-    while chars_index < secret_size:
-        n = plte[pixel_index][rgb_index]
-        first_bit = test_bit(n, 1)
-        second_bit = test_bit(n, 0)
+    for char_index in range(0, secret_size):  # for each character in the secret message
+        for char_bit_offset in range(7, -1, -2):  # starting from most sig bit in num to least
+            # current RGB value of interest
+            current_color_value = plte_chunk.data[color_index]
 
-        if first_bit == 0:
-            chars[chars_index] = clear_bit(chars[chars_index], char_sub_index)
-        else:
-            chars[chars_index] = set_bit(chars[chars_index], char_sub_index)
+            # first bit setup
+            if test_bit(current_color_value, 1) == 0:
+                value_to_set = clear_bit(chars[char_index], char_bit_offset)
+            else:
+                value_to_set = set_bit(chars[char_index], char_bit_offset)
 
-        if char_sub_index == 0:
-            chars_index += 1
-            char_sub_index = 7
-        else:
-            char_sub_index -= 1
+            # second bit setup
+            if test_bit(current_color_value, 0) == 0:
+                value_to_set = clear_bit(value_to_set, char_bit_offset - 1)
+            else:
+                value_to_set = set_bit(value_to_set, char_bit_offset - 1)
 
-        if second_bit == 0:
-            chars[chars_index] = clear_bit(chars[chars_index], char_sub_index)
-        else:
-            chars[chars_index] = set_bit(chars[chars_index], char_sub_index)
-
-        if rgb_index == 2:
-            rgb_index = 0
-            pixel_index += 1
-        else:
-            rgb_index += 1
-
-        if char_sub_index == 0:
-            chars_index += 1
-            char_sub_index = 7
-        else:
-            char_sub_index -= 1
+            # Change palette value, modifying the two least significant bits
+            chars[char_index] = value_to_set
+            color_index += 1
 
     str_return = b''.join([str.encode(chr(n), ENCODING) for n in chars])
     return str_return
