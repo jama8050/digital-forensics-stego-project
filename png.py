@@ -80,6 +80,11 @@ class PNG:
         self.filter_method = int.from_bytes(meta_info[11:12], byteorder='big')
         self.interlace_method = int.from_bytes(meta_info[12:13], byteorder='big')
 
+        self.__validate_chunks__()
+
+        if self.color_type == 0 or self.color_type == 4:
+            raise Exception('Grayscale images currently unsupported')
+
         # Parse PLTE and IDAT chunks
         self.palette = self.__parse_palette__()
         self.channels = self.__parse_idat__()
@@ -160,10 +165,11 @@ class PNG:
     # Returns list of RGB values in the Palette ('PLTE') chunk
     def __parse_palette__(self):
         plte_chunks = self.get_chunk_by_type(b'PLTE')
-        if len(plte_chunks) > 1:
-            raise Exception('Multiple PLTE chunks detected')
-        elif len(plte_chunks) == 0:
+
+        # Error check for multiple PLTE chunks
+        if len(plte_chunks) == 0:
             raise Exception('No PLTE chunks detected')
+
         plte = plte_chunks[0].data
         palette = []
         for i in range(0, len(plte), 3):  # 3 bytes per color
@@ -180,8 +186,6 @@ class PNG:
         idat_chunks = self.get_chunk_by_type(b'IDAT')
         if len(idat_chunks) > 1:
             raise RuntimeError('Currently unable to parse multiple IDAT chunks.')
-        elif len(idat_chunks) == 0:
-            raise Exception('No IDAT chunk detected, invalid file')
         elif self.color_type != 3:
             raise RuntimeError('Currently restricted to color_type = 3 (set to {})'.format(self.color_type))
 
@@ -189,10 +193,27 @@ class PNG:
 
         # 1 byte per channel
         channels = list(idat)
-        # Verify indexes parsed correctly
-        for v in channels:
-            assert(0 <= v < len(self.palette)), "channels contains invalid index " + str(v)
+
         return channels
+
+    # Called when reading and exporting to validate chunk counts
+    def __validate_chunks__(self):
+        for chunk_type in (b'IHDR', b'IDAT', b'IEND'):
+            num_chunk = len(self.get_chunk_by_type(chunk_type))
+            str_version = chunk_type.decode(self.encoding)
+
+            if num_chunk == 0:
+                raise RuntimeError('No {} chunk detected in PNG'.format(str_version))
+            elif num_chunk > 1:
+                raise RuntimeError('Multiple {} chunks detected'.format(str_version))
+
+        # Special case
+        if self.color_type == 3:
+            num_chunk = len(self.get_chunk_by_type(b'PLTE'))
+            if num_chunk == 0:
+                raise RuntimeError('No {} chunk detected in PNG'.format(str_version))
+            elif num_chunk > 1:
+                raise RuntimeError('Multiple {} chunks detected'.format(str_version))
 
     # Used to easily modify palette values
     def set_palette(self, palette_index, color, new_value):
@@ -204,10 +225,6 @@ class PNG:
             raise ValueError('Selected color to change must be in {}, given {}'.format(color_codes, color))
         elif not (0 <= new_value <= 255):
             raise ValueError('Color values must be in range [0, 255], given {}'.format(new_value))
-        elif len(plte_chunks) == 0:
-            raise Exception('No PLTE chunk detected')
-        elif len(plte_chunks) > 1:
-            raise Exception('More than 1 PLTE chunk detected')
 
         # Change value stored in palette array
         self.palette[palette_index][color_codes.index(color)] = new_value
@@ -220,6 +237,7 @@ class PNG:
 
     # export current data to new file
     def export_image(self):
+        self.__validate_chunks__()
         return _PNG_HEADER + b''.join([chunk.output_chunk() for chunk in self.chunks])
 
 
