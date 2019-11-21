@@ -29,7 +29,6 @@ def insert(carrier_obj, message):
             print('bad')
             return carrier_obj
         else:
-
             # Index of which color value we're looking at
             color_index = 0
             for num in message_numbers:  # for each character in the secret message
@@ -54,8 +53,8 @@ def insert(carrier_obj, message):
                     carrier_obj.index_data(b'PLTE', color_index, value_to_set)
                     color_index += 1
 
-            # To keep track of the secret message's length, the message length is stored in the size of the IEND chunk
             # FIXME: Storing message length in size of IEND chunk is stupid easy to detect
+            # To keep track of the secret message's length, the message length is stored in the size of the IEND chunk
             message_byte_len = len(message_numbers).to_bytes(4, byteorder='big')
             iend_index, iend_chunk = carrier_obj.get_chunk_by_type(b'IEND', bool_return_index=True)
             carrier_obj.chunks[iend_index].size = message_byte_len
