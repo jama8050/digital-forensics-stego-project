@@ -69,9 +69,6 @@ def insert(carrier_obj, message):
             message_byte_len = len(message_numbers).to_bytes(4, byteorder='big')
             carrier_obj.chunks[carrier_obj.chunk_indexes[b'IEND'][0]].size = message_byte_len
             return carrier_obj
-    # TODO: Implement file metadata calls
-    # file_metadata("Original carrier file information:", carrier_name, data)
-    # file_metadata("Modified carrier file information:", new_name, new_data)
 
 
 # Extract the secret message
@@ -118,7 +115,7 @@ def extract(carrier_png):
         else:
             char_sub_index -= 1
 
-    str_return = ''.join([chr(n) for n in chars])
+    str_return = b''.join([str.encode(chr(n), ENCODING) for n in chars])
     return str_return
 
 
@@ -147,16 +144,21 @@ def main():
     original_image = PNG(data, verbose=True)
 
     if parsed.secret:
-        original_image = insert(original_image, parsed.secret)
-        # in extract mode
-
-        # After finished parsing, output file
-        with parsed.output_file as output_file:
-            output_file.write(original_image.export_image())
+        modified_image = insert(original_image, parsed.secret)
+        output_data = modified_image.export_image()
     else:
         # in extract mode
-        message = extract(original_image)
-        print('Secret message: "{}"'.format(message))
+        output_data = extract(original_image)
+
+        print('Secret message: "{}"'.format(output_data.decode(ENCODING)))
+
+    # After finished parsing, output file
+    with parsed.output_file as output_file:
+        output_file.write(output_data)
+
+    # Print file statistics
+    file_metadata("Original file information:", parsed.carrier.name, data)
+    file_metadata("Exported file information:", parsed.output_file.name, output_data)
 
 
 if __name__ == "__main__":
