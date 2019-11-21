@@ -1,17 +1,12 @@
 #!/usr/bin/env python3
 
-from argparse import ArgumentParser, FileType, ArgumentTypeError
+from argparse import ArgumentParser, FileType
 from hashlib import md5
 from _md5 import md5
 from png import PNG
-from bits import test_bit, set_bit, clear_bit, get_bin
+from bits import test_bit, set_bit, clear_bit
 
-PNG_HEADER = b'\x89\x50\x4e\x47\x0d\x0a\x1a\x0a'
-PNG_FOOTER = b'\x00\x00\x00\x00IEND\xae\x42\x60\x82'
 ENCODING = 'utf-8'
-CRITICAL_CHUNKS = (b'IHDR', b'PLTE', b'IDAT', b'IEND')
-ANCILLARY_CHUNKS = (b'bKGD', b'cHRM', b'dSIG', b'eXIF', b'gAMA', b'hIST', b'iCCP', b'iTXt',
-                    b'pHYs', b'sBIT', b'sPLT', b'sRGB', b'sTER', b'tEXt', b'tIME', b'tRNS', b'zTXt')
 EMBED_STR = "_embedded"  # Add onto the end of a file name that we modify
 
 # The following numbers were randomly generated
