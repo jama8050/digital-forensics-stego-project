@@ -114,7 +114,6 @@ class PNG:
         chunks = []
         chunk_indexes = {}
         i = 0
-        # chunks.append(data[:len(_PNG_HEADER)])  # Add header chunks list
         i += len(_PNG_HEADER)
 
         # While there are still chunks to parse...
