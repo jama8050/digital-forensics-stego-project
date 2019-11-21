@@ -6,6 +6,29 @@ ANCILLARY_CHUNKS = (b'bKGD', b'cHRM', b'dSIG', b'eXIF', b'gAMA', b'hIST', b'iCCP
                     b'pHYs', b'sBIT', b'sPLT', b'sRGB', b'sTER', b'tEXt', b'tIME', b'tRNS', b'zTXt')
 
 
+class Chunk:
+    def __init__(self, init_type=b'', init_data=b''):
+        self.size = len(init_data).to_bytes(4, byteorder='big')
+        self.type = init_type
+        self.data = init_data
+        self.crc32 = b''
+        self.calculate_crc32()
+
+    def calculate_crc32(self):
+        self.crc32 = crc32(self.type + self.data).to_bytes(4, byteorder='big')
+
+    def int_size(self):
+        return int.from_bytes(self.size, byteorder='big')
+
+    # Return the chunk as you would see it in a hex editor
+    def output_chunk(self):
+        self.calculate_crc32()
+        return self.size + self.type + self.data + self.crc32
+
+    def __len__(self):
+        return len(self.data)
+
+
 class PNG:
     def __init__(self, data, verbose=False):
         self.verbose = verbose
