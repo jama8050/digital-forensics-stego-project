@@ -177,7 +177,8 @@ class PNG:
             r = plte[i]
             g = plte[i + 1]
             b = plte[i + 2]
-            entry = [r, g, b]
+
+            entry = Pixel(r, g, b)
             palette.append(entry)
         return palette
 
@@ -222,19 +223,28 @@ class PNG:
         color_codes = ('r', 'g', 'b')
 
         # Error checking block
-        if color not in color_codes:
+        if color not in color_codes and color not in range(len(color_codes)):
             raise ValueError('Selected color to change must be in {}, given {}'.format(color_codes, color))
         elif not (0 <= new_value <= 255):
             raise ValueError('Color values must be in range [0, 255], given {}'.format(new_value))
 
         # Change value stored in palette array
-        self.palette[palette_index][color_codes.index(color)] = new_value
+        if color == 'r' or color == 0:
+            self.palette[palette_index].r = new_value
+            offset = 0
+        elif color == 'g' or color == 1:
+            self.palette[palette_index].g = new_value
+            offset = 1
+        else:
+            self.palette[palette_index].b = new_value
+            offset = 2
 
-        actual_index = (3 * palette_index) + color_codes.index(color)  # Byte offset in chunk
+        # Adapting offset to account for 'rgb' values and 0-3 values
+        byte_index = (3 * palette_index) + offset  # Byte offset in chunk
 
         current_text = plte_chunks[0].data
         # Change chunk value
-        self.chunks[self.chunk_indexes[b'PLTE'][0]].data = current_text[:actual_index] + new_value.to_bytes(1, byteorder='big') + current_text[actual_index + 1:]
+        self.chunks[self.chunk_indexes[b'PLTE'][0]].data = current_text[:byte_index] + new_value.to_bytes(1, byteorder='big') + current_text[byte_index + 1:]
 
     # export current data to new file
     def export_image(self):
@@ -248,9 +258,8 @@ def test_main():
         data = image.read()
     newPNG = PNG(data, verbose=True)
     color_to_change = 'g'
-    color_index = 1
     for palette_index in range(len(newPNG.palette)):
-        current_value = newPNG.palette[palette_index][color_index]
+        current_value = newPNG.palette[palette_index].g
         if current_value == 255:
             continue
         print("Original {} value = {}".format(color_to_change, current_value))
@@ -262,7 +271,7 @@ def test_main():
             new_value = 255
 
         newPNG.set_palette(palette_index, color_to_change, new_value)
-        new_value = newPNG.palette[palette_index][color_index]
+        new_value = newPNG.palette[palette_index].g
         print("New {} value = {}".format(color_to_change, new_value))
         assert(current_value < new_value), 'Decrement failed'
 
