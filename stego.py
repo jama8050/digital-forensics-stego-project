@@ -3,7 +3,8 @@
 from argparse import ArgumentParser, FileType, ArgumentTypeError
 from hashlib import md5
 from _md5 import md5
-from png import PNG, Chunk
+from png import PNG
+from bits import test_bit, set_bit, clear_bit, get_bin
 
 PNG_HEADER = b'\x89\x50\x4e\x47\x0d\x0a\x1a\x0a'
 PNG_FOOTER = b'\x00\x00\x00\x00IEND\xae\x42\x60\x82'
