@@ -141,6 +141,7 @@ class PNG:
                 raise RuntimeWarning(
                     'Unknown chunk type "{}" found at byte-index {}'.format(chunk_type.decode(self.encoding), i))
 
+            # Build chunk_indexes list
             if chunk_type not in chunk_indexes:
                 chunk_indexes[chunk_type] = [len(chunks)]
             else:
