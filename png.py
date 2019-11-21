@@ -6,6 +6,38 @@ ANCILLARY_CHUNKS = (b'bKGD', b'cHRM', b'dSIG', b'eXIF', b'gAMA', b'hIST', b'iCCP
                     b'pHYs', b'sBIT', b'sPLT', b'sRGB', b'sTER', b'tEXt', b'tIME', b'tRNS', b'zTXt')
 
 
+class Pixel:
+    def __init__(self, r=0, g=0, b=0):
+        self.r = r
+        self.g = g
+        self.b = b
+
+    def __getitem__(self, item):
+        if item == 0 or item == 'r':
+            return self.r
+        elif item == 1 or item == 'g':
+            return self.g
+        elif item == 2 or item == 'b':
+            return self.b
+        else:
+            raise KeyError()
+
+    def __setitem__(self, key, value):
+        if isinstance(value, int) is False:
+            raise ValueError('Value of the wrong type')
+        elif value < 0 or value > 255:
+            raise ValueError('Value out of range [0, 255]')
+        if key not in ('r', 'g', 'b', 0, 1, 2):
+            raise KeyError()
+
+        if key == 0 or key == 'r':
+            self.r = value
+        elif key == 1 or key == 'g':
+            self.g = value
+        else:
+            self.b = value
+
+
 class Chunk:
     def __init__(self, init_type=b'', init_data=b''):
         self.size = len(init_data).to_bytes(4, byteorder='big')
