@@ -1,41 +1,10 @@
 from binascii import crc32
+
 _PNG_HEADER = b'\x89\x50\x4e\x47\x0d\x0a\x1a\x0a'
 _PNG_FOOTER = b'IEND\xae\x42\x60\x82'
 CRITICAL_CHUNKS = (b'IHDR', b'PLTE', b'IDAT', b'IEND')
 ANCILLARY_CHUNKS = (b'bKGD', b'cHRM', b'dSIG', b'eXIF', b'gAMA', b'hIST', b'iCCP', b'iTXt',
                     b'pHYs', b'sBIT', b'sPLT', b'sRGB', b'sTER', b'tEXt', b'tIME', b'tRNS', b'zTXt')
-
-
-class Pixel:
-    def __init__(self, r=0, g=0, b=0):
-        self.r = r
-        self.g = g
-        self.b = b
-
-    def __getitem__(self, item):
-        if item == 0 or item == 'r':
-            return self.r
-        elif item == 1 or item == 'g':
-            return self.g
-        elif item == 2 or item == 'b':
-            return self.b
-        else:
-            raise KeyError()
-
-    def __setitem__(self, key, value):
-        if isinstance(value, int) is False:
-            raise ValueError('Value of the wrong type')
-        elif value < 0 or value > 255:
-            raise ValueError('Value out of range [0, 255]')
-        if key not in ('r', 'g', 'b', 0, 1, 2):
-            raise KeyError()
-
-        if key == 0 or key == 'r':
-            self.r = value
-        elif key == 1 or key == 'g':
-            self.g = value
-        else:
-            self.b = value
 
 
 class Chunk:
@@ -68,8 +37,9 @@ class PNG:
         if data[:len(_PNG_HEADER)] != _PNG_HEADER or data[len(data) - len(_PNG_FOOTER):] != _PNG_FOOTER:
             raise Exception('Valid PNG header and/or footer not found')
 
-        self.chunks, self.chunk_indexes = self.split_chunks(data)
-        meta_info = self.chunks[self.chunk_indexes[b'IHDR'][0]].data
+        self.__split_chunks__(data)
+        header_chunk = self.get_chunk_by_type(b'IHDR')
+        meta_info = header_chunk.data
 
         # Process metadata, converting bytes to ints
         self.width = int.from_bytes(meta_info[0:4], byteorder='big')
@@ -85,20 +55,8 @@ class PNG:
         if self.color_type == 0 or self.color_type == 4:
             raise Exception('Grayscale images currently unsupported')
 
-        # Parse PLTE and IDAT chunks
-        self.palette = self.__parse_palette__()
-        self.channels = self.__parse_idat__()
-
         # Metadata verbose printing
         if self.verbose is True:
-            print("PNG header and footer found, splitting chunks...")
-            print("Chunk indexes:", self.chunk_indexes)
-
-            print("PLTE chunk size: {}B".format(len(self.chunks[self.chunk_indexes[b'PLTE'][0]].data)))
-            print("Number of palette entries:", len(self.palette))
-
-            print("IDAT Size: {}B".format(len(self.channels)))
-
             print("Image width: {}px".format(self.width))
             print("Image height: {}px".format(self.height))
             print("Image bit depth: {}-bit".format(self.bit_depth))
@@ -107,25 +65,43 @@ class PNG:
             print("Image filter method: {}".format(self.filter_method))
             print("Image interlace method: {}".format(self.interlace_method))
 
-    def get_chunk_by_type(self, chunk_type):
-        chunk_indexes = self.chunk_indexes[chunk_type]
-        return_chunks = [self.chunks[chunk_index] for chunk_index in chunk_indexes]
-        return return_chunks
+    def get_chunk_by_type(self, chunk_type, bool_return_index=False):
+        return_index = -1
+        return_chunk = None
+
+        for index, chunk in enumerate(self.chunks):
+            if chunk.type == chunk_type:
+                return_index = index
+                return_chunk = chunk
+                break
+
+        # If we complete the for loop, we never found the chunk we were looking for
+        if bool_return_index is True:
+            return return_index, return_chunk
+        else:
+            return return_chunk
+
+    def index_data(self, select_chunk_type, index, new_value, num_bytes=1):
+        chunk_index, chunk_data = self.get_chunk_by_type(select_chunk_type, bool_return_index=True)
+        before_current = self.chunks[chunk_index].data[:index]
+        after_current = self.chunks[chunk_index].data[index + num_bytes:]
+        self.chunks[chunk_index].data = before_current + new_value.to_bytes(num_bytes, byteorder='big') + after_current
 
     # Split PNG data up into chunks, categorize them by critical, ancillary, or unknown,
     # and return a list of all chunks + the indexes where each chunk was found
     # Format for returned chunks is [chunk size, chunk type, chunk data, CRC-32]
-    def split_chunks(self, data):
-        chunks = []
-        chunk_indexes = {}
-        i = 0
-        i += len(_PNG_HEADER)
+    def __split_chunks__(self, data):
+        self.chunks = []
+
+        # skip PNG starting magic number
+        i = len(_PNG_HEADER)
 
         # While there are still chunks to parse...
         while i < len(data):
             new_chunk = Chunk()
             size = data[i:i + 4]
             new_chunk.size = size
+
             chunk_size = new_chunk.int_size()  # Gets current chunk size (in number of bytes)
             i += 4
 
@@ -143,10 +119,9 @@ class PNG:
                     'Unknown chunk type "{}" found at byte-index {}'.format(chunk_type.decode(self.__encoding__), i))
 
             # Build chunk_indexes list
-            if chunk_type not in chunk_indexes:
-                chunk_indexes[chunk_type] = [len(chunks)]
-            else:
-                chunk_indexes[chunk_type].append(len(chunks))
+            if self.get_chunk_by_type(chunk_type) is not None:
+                raise RuntimeError('Chunk of type {} already exists'.format(chunk_type))
+
             i += 4
 
             chunk_data = data[i:i + chunk_size]
@@ -156,97 +131,26 @@ class PNG:
             original_crc32 = data[i:i + 4]
             new_chunk.crc32 = original_crc32
             i += 4
-            chunks.append(new_chunk)
+            self.chunks.append(new_chunk)
 
         if self.verbose is True:
-            print("PNG split into {} chunks (counting header and footer)".format(len(chunks)))
-        return chunks, chunk_indexes
-
-    # ASSUMES COLOR TYPE = INDEXED, BIT-DEPTH = 8
-    # Palette not used for color type != (indexed = 3)
-    # Returns list of RGB values in the Palette ('PLTE') chunk
-    def __parse_palette__(self):
-        plte_chunks = self.get_chunk_by_type(b'PLTE')
-
-        # Error check for multiple PLTE chunks
-        if len(plte_chunks) == 0:
-            raise Exception('No PLTE chunks detected')
-
-        plte = plte_chunks[0].data
-        palette = []
-        for i in range(0, len(plte), 3):  # 3 bytes per color
-            r = plte[i]
-            g = plte[i + 1]
-            b = plte[i + 2]
-
-            entry = Pixel(r, g, b)
-            palette.append(entry)
-        return palette
-
-    # ASSUMES COLOR TYPE = INDEXED, BIT-DEPTH = 8
-    # Palette not used for color type != (indexed = 3)
-    def __parse_idat__(self):
-        idat_chunks = self.get_chunk_by_type(b'IDAT')
-        if len(idat_chunks) > 1:
-            raise RuntimeError('Currently unable to parse multiple IDAT chunks.')
-        elif self.color_type != 3:
-            raise RuntimeError('Currently restricted to color_type = 3 (set to {})'.format(self.color_type))
-
-        idat = idat_chunks[0].data
-
-        # 1 byte per channel
-        channels = list(idat)
-
-        return channels
+            print("PNG split into {} chunks (counting header and footer)".format(len(self.chunks)))
 
     # Called when reading and exporting to validate chunk counts
     def __validate_chunks__(self):
+        print([chunk.type for chunk in self.chunks])
         for chunk_type in (b'IHDR', b'IDAT', b'IEND'):
-            num_chunk = len(self.get_chunk_by_type(chunk_type))
-            str_version = chunk_type.decode(self.encoding)
+            num_chunk = self.get_chunk_by_type(chunk_type)
 
-            if num_chunk == 0:
+            if num_chunk is None:
                 str_version = chunk_type.decode(self.__encoding__)
                 raise RuntimeError('No {} chunk detected in PNG'.format(str_version))
-            elif num_chunk > 1:
-                raise RuntimeError('Multiple {} chunks detected'.format(str_version))
 
         # Special case
         if self.color_type == 3:
-            num_chunk = len(self.get_chunk_by_type(b'PLTE'))
-            if num_chunk == 0:
-                raise RuntimeError('No {} chunk detected in PNG'.format(str_version))
-            elif num_chunk > 1:
-                raise RuntimeError('Multiple {} chunks detected'.format(str_version))
-
-    # Used to easily modify palette values
-    def set_palette(self, palette_index, color, new_value):
-        plte_chunks = self.get_chunk_by_type(b'PLTE')
-        color_codes = ('r', 'g', 'b')
-
-        # Error checking block
-        if color not in color_codes and color not in range(len(color_codes)):
-            raise ValueError('Selected color to change must be in {}, given {}'.format(color_codes, color))
-        elif not (0 <= new_value <= 255):
-            raise ValueError('Color values must be in range [0, 255], given {}'.format(new_value))
-
-        # Change value stored in palette array
-        if color == 'r' or color == 0:
-            self.palette[palette_index].r = new_value
-            offset = 0
-        elif color == 'g' or color == 1:
-            self.palette[palette_index].g = new_value
-            offset = 1
-        else:
-            self.palette[palette_index].b = new_value
-            offset = 2
-
-        # Adapting offset to account for 'rgb' values and 0-3 values
-        byte_index = (3 * palette_index) + offset  # Byte offset in chunk
-
-        current_text = plte_chunks[0].data
-        # Change chunk value
-        self.chunks[self.chunk_indexes[b'PLTE'][0]].data = current_text[:byte_index] + new_value.to_bytes(1, byteorder='big') + current_text[byte_index + 1:]
+            num_chunk = self.get_chunk_by_type(b'PLTE')
+            if num_chunk == -1:
+                raise RuntimeError('No {} chunk detected in PNG'.format(num_chunk.type.decode(self.__encoding__)))
 
     # export current data to new file
     def export_image(self):
@@ -259,12 +163,18 @@ def test_main():
     with open('test.png', 'rb') as image:
         data = image.read()
     newPNG = PNG(data, verbose=True)
-    color_to_change = 'g'
-    for palette_index in range(len(newPNG.palette)):
-        current_value = newPNG.palette[palette_index].g
+
+    color_name = 'g'
+    color_to_change = 1
+
+    palette_index, palette_chunk = newPNG.get_chunk_by_type(b'PLTE', bool_return_index=True)
+
+    for color_index in range(1, int.from_bytes(palette_chunk.size, byteorder='big'), 3):
+        current_value = newPNG.chunks[palette_index].data[color_index]
+
         if current_value == 255:
             continue
-        print("Original {} value = {}".format(color_to_change, current_value))
+        print("Original {} value = {}".format(color_name, current_value))
 
         increment = 18
         if increment + current_value < 255:
@@ -272,12 +182,15 @@ def test_main():
         else:
             new_value = 255
 
-        newPNG.set_palette(palette_index, color_to_change, new_value)
-        new_value = newPNG.palette[palette_index].g
-        print("New {} value = {}".format(color_to_change, new_value))
-        assert(current_value < new_value), 'Decrement failed'
+        before_current = newPNG.chunks[palette_index].data[:color_index]
+        after_current = newPNG.chunks[palette_index].data[color_index + 1:]
+        newPNG.chunks[palette_index].data = before_current + new_value.to_bytes(1, byteorder='big') + after_current
 
-    with open('new_png.png', 'wb') as new_image:
+        print("New {} value = {}".format(color_to_change, new_value))
+
+        assert (current_value < new_value), 'Decrement failed'
+
+    with open('new.png', 'wb') as new_image:
         new_image.write(newPNG.export_image())
 
 
