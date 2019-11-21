@@ -27,53 +27,104 @@ def file_metadata(title, file_name, data):
     print('\tMD5 Hash: {}'.format(md5(data).hexdigest()))
 
 
-# Append the secret message to a file
-def append(carrier_obj, message):
-    carrier_name = carrier_obj.name
-    message_to_write = START_MARKER + str.encode(message, ENCODING) + END_MARKER
-    last_dot = carrier_name.rfind('.')
-    new_name = carrier_name[:last_dot] + EMBED_STR + carrier_name[last_dot:]
+# Insert the secret message to the carrier file
+def insert(carrier_obj, message):
+    message_numbers = [ord(c) for c in message]  # Get int representation of each char in message
 
-    with carrier_obj as image, open(new_name, 'wb') as new_image:
-        data = image.read()
-        # Check if provided carrier is a PNG
-        if data[:len(PNG_HEADER)] != PNG_HEADER or data[len(data) - len(PNG_FOOTER):] != PNG_FOOTER:
-            raise ArgumentTypeError('Provided carrier file could not be validated as a PNG.')
+    if carrier_obj.color_type == 3:  # Indexed
+        # two bits of each character go to different color value (CV)
+        if len(carrier_obj.get_chunk_by_type(b'PLTE')[0].data) < len(message_numbers) * 3:
+            # TODO: Going to have to add tRNS chunk if it doesn't exist
+            print('bad')
+            return carrier_obj
+        else:
+            # Do LSB on the palette values
+            if carrier_obj.verbose is True:
+                print('We\'ll be able to fit the message in the PLTE!')
 
-        new_data = data + message_to_write
-        new_image.write(new_data)
+            # Where we are in the palette
+            palette_index = 0
 
-    carrier_obj.close()
+            # which color value we're looking at
+            color_index = 0
+            for num in message_numbers:
+                for char_bit_index in range(7, -1, -2):
+                    current_color_value = carrier_obj.palette[palette_index][color_index]
 
-    file_metadata("Original carrier file information:", carrier_name, data)
-    file_metadata("Modified carrier file information:", new_name, new_data)
+                    # first bit setup
+                    if test_bit(num, char_bit_index) == 0:
+                        value_to_set = clear_bit(current_color_value, 1)
+                    else:
+                        value_to_set = set_bit(current_color_value, 1)
+
+                    # second bit setup
+                    if test_bit(num, char_bit_index - 1) == 0:
+                        value_to_set = clear_bit(value_to_set, 0)
+                    else:
+                        value_to_set = set_bit(value_to_set, 0)
+
+                    carrier_obj.set_palette(palette_index, color_index, value_to_set)
+
+                    if color_index == 2:
+                        palette_index += 1
+                        color_index = 0
+                    else:
+                        color_index += 1
+
+            message_byte_len = len(message_numbers).to_bytes(4, byteorder='big')
+            carrier_obj.chunks[carrier_obj.chunk_indexes[b'IEND'][0]].size = message_byte_len
+            return carrier_obj
+    # TODO: Implement file metadata calls
+    # file_metadata("Original carrier file information:", carrier_name, data)
+    # file_metadata("Modified carrier file information:", new_name, new_data)
 
 
 # Extract the secret message
-def extract(carrier_obj, output_object):
-    carrier_name = carrier_obj.name
-    with carrier_obj as image:
-        data = image.read()
-    carrier_obj.close()
+def extract(carrier_png):
+    secret_size = carrier_png.get_chunk_by_type(b'IEND')[0].int_size()
+    plte = carrier_png.palette
+    chars = [0] * secret_size
 
-    # Locate message via custom magic numbers
-    start_index = data.rfind(START_MARKER)
-    end_index = data.rfind(END_MARKER)
+    pixel_index = 0
+    rgb_index = 0
+    chars_index = 0
+    char_sub_index = 7
 
-    if start_index == -1 or end_index == -1:
-        raise RuntimeError('Starting and/or ending magic numbers could not be found in file "{}"'.format(carrier_name))
-    else:
-        file_metadata("Secret carrier file information:", carrier_name, data)
+    while chars_index < secret_size:
+        n = plte[pixel_index][rgb_index]
+        first_bit = test_bit(n, 1)
+        second_bit = test_bit(n, 0)
 
-    # decoded, secret message
-    str_return = data[start_index + len(START_MARKER):end_index]
+        if first_bit == 0:
+            chars[chars_index] = clear_bit(chars[chars_index], char_sub_index)
+        else:
+            chars[chars_index] = set_bit(chars[chars_index], char_sub_index)
 
-    with output_object:
-        output_object.write(str_return)
-        file_metadata("Extracted file information:", output_object.name, str_return)
-    output_object.close()
+        if char_sub_index == 0:
+            chars_index += 1
+            char_sub_index = 7
+        else:
+            char_sub_index -= 1
 
-    return str_return.decode(ENCODING)
+        if second_bit == 0:
+            chars[chars_index] = clear_bit(chars[chars_index], char_sub_index)
+        else:
+            chars[chars_index] = set_bit(chars[chars_index], char_sub_index)
+
+        if rgb_index == 2:
+            rgb_index = 0
+            pixel_index += 1
+        else:
+            rgb_index += 1
+
+        if char_sub_index == 0:
+            chars_index += 1
+            char_sub_index = 7
+        else:
+            char_sub_index -= 1
+
+    str_return = ''.join([chr(n) for n in chars])
+    return str_return
 
 
 # Sets up argument parsing with some error checking
@@ -95,12 +146,21 @@ def init():
 def main():
     parsed = init()
 
+    # In insert mode
+    with parsed.carrier as image:
+        data = image.read()
+    original_image = PNG(data, verbose=True)
+
     if parsed.secret:
-        # In insert mode
-        append(parsed.carrier, parsed.secret)
+        original_image = insert(original_image, parsed.secret)
+
+        # After finished parsing, output file
+        with parsed.output_file as output_file:
+            output_file.write(original_image.export_image())
     else:
         # in extract mode
-        print('Secret message: "{}"'.format(extract(parsed.carrier, parsed.extract_to)))
+        message = extract(original_image)
+        print('Secret message: "{}"'.format(message))
 
 
 if __name__ == "__main__":
