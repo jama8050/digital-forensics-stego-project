@@ -2,9 +2,8 @@
 
 from argparse import ArgumentParser, FileType
 from hashlib import md5
-from _md5 import md5
-from png import PNG
 from bits import test_bit, set_bit, clear_bit
+from png import PNG
 
 ENCODING = 'utf-8'
 VERBOSE = False
