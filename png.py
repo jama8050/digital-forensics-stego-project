@@ -32,11 +32,12 @@ class Chunk:
 class PNG:
     def __init__(self, data, verbose=False):
         self.verbose = verbose
+        self.encoding = 'utf-8'
         if data[:len(_PNG_HEADER)] != _PNG_HEADER or data[len(data) - len(_PNG_FOOTER):] != _PNG_FOOTER:
             raise Exception('Valid PNG header and/or footer not found')
 
         self.chunks, self.chunk_indexes = self.split_chunks(data)
-        meta_info = self.chunks[self.chunk_indexes[b'IHDR'][0]][2]
+        meta_info = self.chunks[self.chunk_indexes[b'IHDR'][0]].data
 
         # Process metadata, converting bytes to ints
         self.width = int.from_bytes(meta_info[0:4], byteorder='big')
@@ -56,7 +57,7 @@ class PNG:
             print("PNG header and footer found, splitting chunks...")
             print("Chunk indexes:", self.chunk_indexes)
 
-            print("PLTE chunk size: {}B".format(len(self.chunks[self.chunk_indexes[b'PLTE'][0]][2])))
+            print("PLTE chunk size: {}B".format(len(self.chunks[self.chunk_indexes[b'PLTE'][0]].data)))
             print("Number of palette entries:", len(self.palette))
 
             print("IDAT Size: {}B".format(len(self.channels)))
@@ -82,11 +83,14 @@ class PNG:
 
         # While there are still chunks to parse...
         while i < len(data):
+            new_chunk = Chunk()
             size = data[i:i + 4]
-            chunk_size = int.from_bytes(size, byteorder='big')  # Gets current chunk size (in number of bytes)
+            new_chunk.size = size
+            chunk_size = new_chunk.int_size()  # Gets current chunk size (in number of bytes)
             i += 4
 
             chunk_type = data[i:i + 4]
+            new_chunk.type = chunk_type
             if self.verbose is True:
                 if chunk_type in CRITICAL_CHUNKS:
                     print('Critical chunk "{}" found at byte-index {}!'.format(chunk_type.decode(encoding), i))
@@ -104,11 +108,13 @@ class PNG:
             i += 4
 
             chunk_data = data[i:i + chunk_size]
+            new_chunk.data = chunk_data
             i += chunk_size
 
             original_crc32 = data[i:i + 4]
+            new_chunk.crc32 = original_crc32
             i += 4
-            chunks.append([size, chunk_type, chunk_data, original_crc32])
+            chunks.append(new_chunk)
 
         if self.verbose is True:
             print("PNG split into {} chunks (counting header and footer)".format(len(chunks)))
@@ -119,6 +125,7 @@ class PNG:
     # Returns list of RGB values in the Palette ('PLTE') chunk
     def parse_palette(self):
         plte = self.chunks[self.chunk_indexes[b'PLTE'][0]][2]
+        plte = plte_chunks[0].data
         palette = []
         for i in range(0, len(plte), 3):  # 3 bytes per color
             r = plte[i]
@@ -136,7 +143,7 @@ class PNG:
         elif self.color_type != 3:
             raise RuntimeError('Currently restricted to color_type = 3 (set to {})'.format(self.color_type))
 
-        idat = self.chunks[self.chunk_indexes[b'IDAT'][0]][2]
+        idat = idat_chunks[0].data
 
         # 1 byte per channel
         channels = list(idat)
@@ -176,15 +183,16 @@ class PNG:
 
         actual_index = (3 * palette_index) + color_codes.index(color)  # Byte offset in chunk
 
-        current_text = self.chunks[self.chunk_indexes[b'PLTE'][0]][2]
+        current_text = plte_chunks[0].data
         # Change chunk value
-        self.chunks[self.chunk_indexes[b'PLTE'][0]][2] = current_text[:actual_index] + new_value.to_bytes(1, byteorder='big') + current_text[actual_index + 1:]
+        self.chunks[self.chunk_indexes[b'PLTE'][0]].data = current_text[:actual_index] + new_value.to_bytes(1, byteorder='big') + current_text[actual_index + 1:]
 
         if self.verbose is True:
             new_hex = self.chunks[self.chunk_indexes[b'PLTE'][0]][2]
             print("Current offset =", actual_index)
 
 
+# A test of the PNG & Chunk classes by incrementing all green values in every pixel in a test image by 18 (max 255)
 def test_main():
     with open('test_png.png', 'rb') as image:
         data = image.read()
