@@ -191,6 +191,7 @@ def init():
                         type=FileType('wb'))
     parsed = parser.parse_args()
 
+    # Prompt the user for input, mainly for testing purposes
     if parsed.secret == '-':
         parsed.secret = input('input secret: ')
 
