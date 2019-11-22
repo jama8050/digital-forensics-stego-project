@@ -96,6 +96,7 @@ def insert(carrier_obj, message):
                                                                           get_bin(current_color_value),
                                                                           get_bin(value_to_set)))
                 print('')
+
             # Change palette value, modifying the two least significant bits
             carrier_obj.index_data(current_chunk_index, byte_index, value_to_set)
 
