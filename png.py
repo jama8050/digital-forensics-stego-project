@@ -26,9 +26,6 @@ class Chunk:
         self.calculate_crc32()
         return self.size + self.type + self.data + self.crc32
 
-    def __len__(self):
-        return len(self.data)
-
 
 class PNG:
     def __init__(self, data, verbose=False):
