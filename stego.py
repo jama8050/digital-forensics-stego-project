@@ -53,6 +53,7 @@ def insert(carrier_obj, message):
 
     total_avail_bytes = sum([chunk.int_size() for chunk in use_chunk])
 
+    # FIXME: pretty sure this limit is broken, but it's currently not a priority
     if len(message_numbers) * 4 > total_avail_bytes:  # one character takes up 4
         raise RuntimeError('Message too big given chunk sizes, sorry')
     else:
