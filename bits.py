@@ -13,6 +13,7 @@ def get_bin(n):
         s = s[:i] + ' ' + s[i:]
     return s
 
+# The following functions were sourced from https://wiki.python.org/moin/BitManipulation
 
 # test_bit() returns a nonzero result, 2**offset, if the bit at 'offset' is one.
 def test_bit(int_type, offset):
