@@ -64,16 +64,28 @@ class PNG:
             print("Image compression method: {}".format(self.compression_method))
             print("Image filter method: {}".format(self.filter_method))
             print("Image interlace method: {}".format(self.interlace_method))
+            print('Order of chunks: {}'.format([chunk.type for chunk in self.chunks]))
 
     def get_chunk_by_type(self, chunk_type, bool_return_index=False):
-        return_index = -1
+        return_index = None
         return_chunk = None
+        index_finds = []
+        chunk_finds = []
 
         for index, chunk in enumerate(self.chunks):
             if chunk.type == chunk_type:
-                return_index = index
-                return_chunk = chunk
-                break
+                index_finds.append(index)
+                chunk_finds.append(chunk)
+
+        if len(index_finds) > 1:
+            return_index = index_finds
+        elif len(index_finds) == 1:
+            return_index = index_finds[0]
+
+        if len(chunk_finds) > 1:
+            return_chunk = chunk_finds
+        elif len(chunk_finds) == 1:
+            return_chunk = chunk_finds[0]
 
         # If we complete the for loop, we never found the chunk we were looking for
         if bool_return_index is True:
@@ -81,8 +93,7 @@ class PNG:
         else:
             return return_chunk
 
-    def index_data(self, select_chunk_type, index, new_value, num_bytes=1):
-        chunk_index, chunk_data = self.get_chunk_by_type(select_chunk_type, bool_return_index=True)
+    def index_data(self, chunk_index, index, new_value, num_bytes=1):
         before_current = self.chunks[chunk_index].data[:index]
         after_current = self.chunks[chunk_index].data[index + num_bytes:]
         self.chunks[chunk_index].data = before_current + new_value.to_bytes(num_bytes, byteorder='big') + after_current
@@ -107,19 +118,24 @@ class PNG:
 
             chunk_type = data[i:i + 4]
             new_chunk.type = chunk_type
+
+            str_type = chunk_type.decode(self.__encoding__)  # used in verbose printing and runtime warning
+            offset = hex(i)
+
             if self.verbose is True:
                 if chunk_type in CRITICAL_CHUNKS:
-                    print('Critical chunk "{}" found at byte-index {}!'.format(chunk_type.decode(self.__encoding__), i))
+                    print('Critical chunk "{}" of size {}B found at offset {}'.format(str_type, chunk_size, offset))
                 elif chunk_type in ANCILLARY_CHUNKS:
                     print(
-                        'Ancillary chunk "{}" found at byte-index {}!'.format(chunk_type.decode(self.__encoding__), i))
+                        'Ancillary chunk "{}" of size {}B found at offset {}!'.format(str_type, chunk_size, offset))
 
             if chunk_type not in CRITICAL_CHUNKS and chunk_type not in ANCILLARY_CHUNKS:
                 raise RuntimeWarning(
-                    'Unknown chunk type "{}" found at byte-index {}'.format(chunk_type.decode(self.__encoding__), i))
+                    'Unknown chunk type "{}" of size {}B found at offset {}'.format(str_type, chunk_size, offset))
 
-            # Build chunk_indexes list
-            if self.get_chunk_by_type(chunk_type) is not None:
+            # Ensure no duplicate critical chunks (except IDAT)
+            if self.get_chunk_by_type(chunk_type) is not None \
+                    and chunk_type in CRITICAL_CHUNKS and chunk_type != b'IDAT':
                 raise RuntimeError('Chunk of type {} already exists'.format(chunk_type))
 
             i += 4
@@ -146,10 +162,8 @@ class PNG:
                 raise RuntimeError('No {} chunk detected in PNG'.format(str_version))
 
         # Special case
-        if self.color_type == 3:
-            num_chunk = self.get_chunk_by_type(b'PLTE')
-            if num_chunk == -1:
-                raise RuntimeError('No {} chunk detected in PNG'.format(num_chunk.type.decode(self.__encoding__)))
+        if self.color_type == 3 and self.get_chunk_by_type(b'PLTE') == -1:
+            raise RuntimeError('No {} chunk detected in PNG'.format(num_chunk.type.decode(self.__encoding__)))
 
     # export current data to new file
     def export_image(self):
