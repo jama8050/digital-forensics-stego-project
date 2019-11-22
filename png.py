@@ -93,6 +93,8 @@ class PNG:
         else:
             return return_chunk
 
+    # Accomplishes "self.chunks[chunk_index].data[index] = new_value.to_bytes(num_bytes, byteorder='big')", which is not
+    # allowed
     def index_data(self, chunk_index, index, new_value, num_bytes=1):
         before_current = self.chunks[chunk_index].data[:index]
         after_current = self.chunks[chunk_index].data[index + num_bytes:]
@@ -114,12 +116,13 @@ class PNG:
             new_chunk.size = size
 
             chunk_size = new_chunk.int_size()  # Gets current chunk size (in number of bytes)
-            i += 4
+            i += 4  # move from size to type
 
             chunk_type = data[i:i + 4]
             new_chunk.type = chunk_type
 
-            str_type = chunk_type.decode(self.__encoding__)  # used in verbose printing and runtime warning
+            # used in verbose printing and runtime warning
+            str_type = chunk_type.decode(self.__encoding__)
             offset = hex(i)
 
             if self.__verbose__ is True:
@@ -138,15 +141,19 @@ class PNG:
                     and chunk_type in CRITICAL_CHUNKS and chunk_type != b'IDAT':
                 raise RuntimeError('Chunk of type {} already exists'.format(chunk_type))
 
-            i += 4
+            i += 4  # move from type to data
 
             chunk_data = data[i:i + chunk_size]
             new_chunk.data = chunk_data
-            i += chunk_size
+
+            i += chunk_size  # move from data to crc32
 
             original_crc32 = data[i:i + 4]
             new_chunk.crc32 = original_crc32
-            i += 4
+
+            i += 4  # move to next chunk
+
+            # Record the Chunk object we made
             self.chunks.append(new_chunk)
 
         if self.__verbose__ is True:
@@ -154,6 +161,7 @@ class PNG:
 
     # Called when reading and exporting to validate chunk counts
     def __validate_chunks__(self):
+        # Ensure required critical chunks exist
         for chunk_type in (b'IHDR', b'IDAT', b'IEND'):
             num_chunk = self.get_chunk_by_type(chunk_type)
 
@@ -161,11 +169,11 @@ class PNG:
                 str_version = chunk_type.decode(self.__encoding__)
                 raise RuntimeError('No {} chunk detected in PNG'.format(str_version))
 
-        # Special case
+        # Special case for color_type = 3
         if self.color_type == 3 and self.get_chunk_by_type(b'PLTE') == -1:
             raise RuntimeError('No {} chunk detected in PNG'.format(num_chunk.type.decode(self.__encoding__)))
 
-    # export current data to new file
+    # Return byte-string representation of this PNG to write to a file
     def export_image(self):
         self.__validate_chunks__()
         return _PNG_HEADER + b''.join([chunk.output_chunk() for chunk in self.chunks])
