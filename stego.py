@@ -99,7 +99,7 @@ def insert(carrier_obj, message):
                 print('')
 
             # Change palette value, modifying the two least significant bits
-            carrier_obj.index_data(current_chunk_index, byte_index, value_to_set)
+            carrier_obj.set_value_at_index(current_chunk_index, byte_index, value_to_set)
 
             counter += 1
 

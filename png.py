@@ -22,7 +22,7 @@ class Chunk:
         return int.from_bytes(self.size, byteorder='big')
 
     # Return the chunk as you would see it in a hex editor
-    def output_chunk(self):
+    def export_chunk(self):
         self.calculate_crc32()
         return self.size + self.type + self.data + self.crc32
 
@@ -176,7 +176,7 @@ class PNG:
     # Return byte-string representation of this PNG to write to a file
     def export_image(self):
         self.__validate_chunks__()
-        return _PNG_HEADER + b''.join([chunk.output_chunk() for chunk in self.chunks])
+        return _PNG_HEADER + b''.join([chunk.export_chunk() for chunk in self.chunks])
 
 
 # A test of the PNG & Chunk classes by incrementing all green values in every pixel in a test image by 18 (max 255)
