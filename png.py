@@ -92,7 +92,7 @@ class PNG:
 
     # Accomplishes "self.chunks[chunk_index].data[index] = new_value.to_bytes(num_bytes, byteorder='big')", which is not
     # allowed
-    def index_data(self, chunk_index, index, new_value, num_bytes=1):
+    def set_value_at_index(self, chunk_index, index, new_value, num_bytes=1):
         before_current = self.chunks[chunk_index].data[:index]
         after_current = self.chunks[chunk_index].data[index + num_bytes:]
         self.chunks[chunk_index].data = before_current + new_value.to_bytes(num_bytes, byteorder='big') + after_current
