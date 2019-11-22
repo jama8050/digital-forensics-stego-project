@@ -39,19 +39,20 @@ def insert(carrier_obj, message):
     message_numbers = [ord(c) for c in message]  # Get int representation of each char in message
 
     # Determine where colors are stored and byte_step
-    if carrier_obj.color_type == 2:  # TrueColor
+    if carrier_obj.color_type == 2 or carrier_obj.color_type == 6:  # TrueColor OR TrueColor + Alpha (type 6)
         chunk_to_use = b'IDAT'
-    elif carrier_obj.color_type == 3:  # Indexed
+    else:  # Indexed
         chunk_to_use = b'PLTE'
-    else:  # TrueColor + Alpha (type 6)
-        chunk_to_use = b'IDAT'
 
-    use_chunk_index, use_chunk = carrier_obj.get_chunk_by_type(chunk_to_use, bool_return_index=True)
-    if isinstance(use_chunk, list) is False:
-        use_chunk_index = [use_chunk_index]
-        use_chunk = [use_chunk]
+    modify_chunk_indexes, chunks_to_modify = carrier_obj.get_chunk_by_type(chunk_to_use, bool_return_index=True)
 
-    total_avail_bytes = sum([chunk.int_size() for chunk in use_chunk])
+    # Since the get_chunk_by_type function can return singular objects, put singular return values into lists
+    # for compatibility with the rest of the function
+    if isinstance(chunks_to_modify, list) is False:
+        modify_chunk_indexes = [modify_chunk_indexes]
+        chunks_to_modify = [chunks_to_modify]
+
+    total_avail_bytes = sum([chunk.int_size() for chunk in chunks_to_modify])
 
     # FIXME: pretty sure this limit is broken, but it's currently not a priority
     if len(message_numbers) * 4 > total_avail_bytes:  # one character takes up 4
@@ -65,10 +66,11 @@ def insert(carrier_obj, message):
     for num_index, num in enumerate(message_numbers):  # for each character in the secret message
         for char_bit_offset in range(7, -1, -2):  # starting from most sig bit in num to least
             # Index of which color value we're looking at
-            chunk_list_index = determine_chunk_index(use_chunk, percent_const * counter)
-            byte_index = determine_byte_index(use_chunk, percent_const * counter)
-            current_chunk_index = use_chunk_index[chunk_list_index]
-            current_chunk = use_chunk[chunk_list_index]
+            chunk_list_index = determine_chunk_index(chunks_to_modify, percent_const * counter)
+            byte_index = determine_byte_index(chunks_to_modify, percent_const * counter)
+
+            current_chunk_index = modify_chunk_indexes[chunk_list_index]  # Index of chunk to modify in PNG.chunks
+            current_chunk = chunks_to_modify[chunk_list_index]  # actual Chunk we want to modify
 
             # current RGB(A) value of interest
             current_color_value = current_chunk.data[byte_index]
