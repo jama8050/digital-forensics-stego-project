@@ -32,7 +32,7 @@ class Chunk:
 
 class PNG:
     def __init__(self, data, verbose=False):
-        self.verbose = verbose
+        self.__verbose__ = verbose
         self.__encoding__ = 'utf-8'
         if data[:len(_PNG_HEADER)] != _PNG_HEADER or data[len(data) - len(_PNG_FOOTER):] != _PNG_FOOTER:
             raise Exception('Valid PNG header and/or footer not found')
@@ -56,7 +56,7 @@ class PNG:
             raise Exception('Grayscale images currently unsupported')
 
         # Metadata verbose printing
-        if self.verbose is True:
+        if self.__verbose__ is True:
             print("Image width: {}px".format(self.width))
             print("Image height: {}px".format(self.height))
             print("Image bit depth: {}-bit".format(self.bit_depth))
@@ -122,7 +122,7 @@ class PNG:
             str_type = chunk_type.decode(self.__encoding__)  # used in verbose printing and runtime warning
             offset = hex(i)
 
-            if self.verbose is True:
+            if self.__verbose__ is True:
                 if chunk_type in CRITICAL_CHUNKS:
                     print('Critical chunk "{}" of size {}B found at offset {}'.format(str_type, chunk_size, offset))
                 elif chunk_type in ANCILLARY_CHUNKS:
@@ -149,7 +149,7 @@ class PNG:
             i += 4
             self.chunks.append(new_chunk)
 
-        if self.verbose is True:
+        if self.__verbose__ is True:
             print("PNG split into {} chunks (counting header and footer)".format(len(self.chunks)))
 
     # Called when reading and exporting to validate chunk counts
